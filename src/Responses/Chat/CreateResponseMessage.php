@@ -34,7 +34,7 @@ final class CreateResponseMessage
         $attributeAnnotations = $attributes['annotations'] ?? [];
         $annotations = [];
         foreach ($attributeAnnotations as $annotation) {
-            if (isset($annotations['url_citations']) {
+            if (isset($annotations['url_citations'])) {
                 $annotations[] = CreateResponseChoiceAnnotations::from($annotation);
             }
         }
