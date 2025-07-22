@@ -31,9 +31,13 @@ final class CreateResponseMessage
             $result
         ), $attributes['tool_calls'] ?? []);
 
-        $annotations = array_map(fn (array $result): CreateResponseChoiceAnnotations => CreateResponseChoiceAnnotations::from(
-            $result,
-        ), $attributes['annotations'] ?? []);
+        $attributeAnnotations = $attributes['annotations'] ?? [];
+        $annotations = [];
+        foreach ($attributeAnnotations as $annotation) {
+            if (isset($annotations['url_citations']) {
+                $annotations[] = CreateResponseChoiceAnnotations::from($annotation);
+            }
+        }
 
         return new self(
             $attributes['role'],
