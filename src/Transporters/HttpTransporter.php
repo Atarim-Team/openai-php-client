@@ -130,7 +130,7 @@ final class HttpTransporter implements TransporterContract
             $response = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 
             if (isset($response['error']['metadata']['raw'])) {
-                throw new ErrorException(json_decode($response['error']['metadata']['raw'], true)['error'], $statusCode);
+                throw new ErrorException(json_decode($response['error']['metadata']['raw'], true), $statusCode);
             }
             if (isset($response['error'])) {
                 throw new ErrorException($response['error'], $statusCode);
