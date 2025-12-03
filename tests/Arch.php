@@ -19,6 +19,7 @@ test('exceptions')
     ->expect('OpenAI\Exceptions')
     ->toOnlyUse([
         'Psr\Http\Client',
+        'Psr\Http\Message\ResponseInterface',
     ])->toImplement(Throwable::class);
 
 test('resources')->expect('OpenAI\Resources')->toOnlyUse([
@@ -30,6 +31,7 @@ test('resources')->expect('OpenAI\Resources')->toOnlyUse([
 
 test('responses')->expect('OpenAI\Responses')->toOnlyUse([
     'Http\Discovery\Psr17Factory',
+    'OpenAI\Actions',
     'OpenAI\Enums',
     'OpenAI\Exceptions\ErrorException',
     'OpenAI\Exceptions\UnknownEventException',

@@ -52,7 +52,7 @@ test('create throws an exception if stream option is true', function () {
         'prompt' => 'hi',
         'stream' => true,
     ]);
-})->expectException(InvalidArgumentException::class);
+})->throws(InvalidArgumentException::class);
 
 test('create streamed', function () {
     $response = new Response(
@@ -93,6 +93,11 @@ test('create streamed', function () {
         ->index->toBe(0)
         ->logprobs->toBe(null)
         ->finishReason->toBeNull();
+
+    $iterator = iterator_to_array($result->getIterator());
+    $last = end($iterator);
+    expect($last->usage)
+        ->toBeInstanceOf(CreateResponseUsage::class);
 
     expect($result->meta())
         ->toBeInstanceOf(MetaInformation::class);

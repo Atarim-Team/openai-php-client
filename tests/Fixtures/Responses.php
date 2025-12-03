@@ -7,12 +7,14 @@ function createResponseResource(): array
 {
     return [
         'id' => 'resp_67ccf18ef5fc8190b16dbee19bc54e5f087bb177ab789d5c',
+        'background' => null,
         'object' => 'response',
         'created_at' => 1741484430,
         'status' => 'completed',
         'error' => null,
         'incomplete_details' => null,
         'instructions' => null,
+        'max_tool_calls' => null,
         'max_output_tokens' => null,
         'metadata' => [],
         'model' => 'gpt-4o-2024-08-06',
@@ -27,9 +29,13 @@ function createResponseResource(): array
         'parallel_tool_calls' => true,
         'previous_response_id' => null,
         'prompt' => null,
+        'prompt_cache_key' => null,
+        'safety_identifier' => null,
+        'service_tier' => null,
         'reasoning' => [
             'effort' => null,
             'generate_summary' => null,
+            'summary' => null,
         ],
         'store' => true,
         'temperature' => 1.0,
@@ -44,7 +50,9 @@ function createResponseResource(): array
             toolFileSearch(),
             toolImageGeneration(),
             toolRemoteMcp(),
+            toolConnectorMcp(),
         ],
+        'top_logprobs' => null,
         'top_p' => 1.0,
         'truncation' => 'disabled',
         'usage' => [
@@ -59,6 +67,7 @@ function createResponseResource(): array
             'total_tokens' => 684,
         ],
         'user' => null,
+        'verbosity' => null,
     ];
 }
 
@@ -138,12 +147,14 @@ function retrieveResponseResource(): array
 {
     return [
         'id' => 'resp_67ccf18ef5fc8190b16dbee19bc54e5f087bb177ab789d5c',
+        'background' => null,
         'object' => 'response',
         'created_at' => 1741484430,
         'status' => 'completed',
         'error' => null,
         'incomplete_details' => null,
         'instructions' => null,
+        'max_tool_calls' => null,
         'max_output_tokens' => null,
         'metadata' => [],
         'model' => 'gpt-4o-2024-08-06',
@@ -151,12 +162,17 @@ function retrieveResponseResource(): array
             outputWebSearchToolCall(),
             outputAnnotationMessage(),
         ],
+        'output_text' => 'As of today, March 9, 2025, one notable positive news story...',
         'parallel_tool_calls' => true,
         'previous_response_id' => null,
         'prompt' => null,
+        'prompt_cache_key' => null,
+        'safety_identifier' => null,
+        'service_tier' => null,
         'reasoning' => [
             'effort' => null,
             'generate_summary' => null,
+            'summary' => null,
         ],
         'store' => true,
         'temperature' => 1.0,
@@ -171,7 +187,9 @@ function retrieveResponseResource(): array
             toolFileSearch(),
             toolImageGeneration(),
             toolRemoteMcp(),
+            toolConnectorMcp(),
         ],
+        'top_logprobs' => null,
         'top_p' => 1.0,
         'truncation' => 'disabled',
         'usage' => [
@@ -186,6 +204,7 @@ function retrieveResponseResource(): array
             'total_tokens' => 684,
         ],
         'user' => null,
+        'verbosity' => null,
     ];
 }
 
@@ -198,6 +217,18 @@ function listInputItemsResource(): array
         'object' => 'list',
         'data' => [
             inputMessage(),
+            localShellCallOutputItem(),
+            outputBasicMessage(),
+            outputAnnotationMessage(),
+            outputMessageOnlyRefusal(),
+            outputAnnotationMessage(),
+            outputWebSearchToolCall(),
+            outputFileSearchToolCall(),
+            outputComputerToolCall(),
+            outputReasoning(),
+            outputCodeInterpreterToolCall(),
+            outputLocalShellCall(),
+            outputCustomToolCall(),
         ],
         'first_id' => 'msg_67ccf190ca3881909d433c50b1f6357e087bb177ab789d5c',
         'last_id' => 'msg_67ccf190ca3881909d433c50b1f6357e087bb177ab789d5c',
@@ -233,6 +264,71 @@ function inputMessage(): array
         'role' => 'user',
         'status' => 'completed',
         'type' => 'message',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function localShellCallOutputItem(): array
+{
+    return [
+        'type' => 'local_shell_call_output',
+        'id' => 'lco_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'output' => 'hello',
+        'status' => 'completed',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function customToolCallOutputItem(): array
+{
+    return [
+        'type' => 'custom_tool_call_output',
+        'call_id' => 'call_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'id' => 'cto_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'output' => 'custom-output',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function mcpApprovalResponseItem(): array
+{
+    return [
+        'type' => 'mcp_approval_response',
+        'id' => 'mar_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'approval_request_id' => 'apr_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'approve' => true,
+        'reason' => null,
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function InputMessageContentInputFileItem(): array
+{
+    return [
+        'type' => 'input_file',
+        'file_data' => 'data:application/pdf;base64,JVBERi0xLjUKJY8KMTgxIDAgb2JqCjw8IC9GaWx0ZXIgL0ZsYXRlRGVjb2RlIC9MZW5ndGggMT...',
+        'file_id' => 'file_0d1b41da7cb4903a0069235a5089408196a847a8f3e7b4fb1c',
+        'filename' => 'file.pdf',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function InputMessageContentInputFileItemMissingOrNull(): array
+{
+    return [
+        'type' => 'input_file',
+        'file_id' => null,
+        'filename' => 'file.pdf',
     ];
 }
 
@@ -297,6 +393,44 @@ function outputMcpCall(): array
 /**
  * @return array<string, mixed>
  */
+function outputMcpErrorCallObject(): array
+{
+    return [
+        'id' => 'mcp_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'type' => 'mcp_call',
+        'approval_request_id' => null,
+        'arguments' => json_encode(['topk' => 50]),
+        'error' => [
+            'type' => 'http_error',
+            'code' => 401,
+            'message' => 'Unauthorized',
+        ],
+        'name' => 'list_recent_files',
+        'output' => null,
+        'server_label' => 'Dropbox',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function outputMcpErrorCallString(): array
+{
+    return [
+        'id' => 'mcp_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'type' => 'mcp_call',
+        'approval_request_id' => null,
+        'arguments' => json_encode(['topk' => 50]),
+        'error' => 'Missing or invalid authorization token.',
+        'name' => 'list_recent_files',
+        'output' => null,
+        'server_label' => 'Dropbox',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
 function outputMcpListTools(): array
 {
     return [
@@ -304,6 +438,33 @@ function outputMcpListTools(): array
         'server_label' => 'server-name',
         'type' => 'mcp_list_tools',
         'tools' => [],
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function outputMcpErrorCallToolExecution(): array
+{
+    return [
+        'id' => 'mcp_68ae0539ede081a096e9cc4526aadc8200b5e200d643ebad',
+        'type' => 'mcp_call',
+        'approval_request_id' => null,
+        'arguments' => '{"value":"test"}',
+        'error' => [
+            'type' => 'mcp_tool_execution_error',
+            'content' => [
+                [
+                    'type' => 'text',
+                    'text' => '[POST] "undefined": <no response> Invalid URL: undefined',
+                    'annotations' => null,
+                    'meta' => null,
+                ],
+            ],
+        ],
+        'name' => 'deploy-html',
+        'output' => null,
+        'server_label' => 'deploy-html',
     ];
 }
 
@@ -342,6 +503,14 @@ function outputWebSearchToolCall(): array
         'id' => 'ws_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
         'status' => 'completed',
         'type' => 'web_search_call',
+        'action' => [
+            'type' => 'search',
+            'sources' => [
+                ['type' => 'url', 'url' => 'https://example.com/news/positive-story'],
+                ['type' => 'url', 'url' => 'https://another.example.com/related-article'],
+            ],
+            'query' => 'what was a positive news story from today?',
+        ],
     ];
 }
 
@@ -443,6 +612,26 @@ function outputAnnotationMessage(): array
                         'type' => 'url_citation',
                         'url' => 'https://.../?utm_source=chatgpt.com',
                     ],
+                    [
+                        'file_id' => 'file-8aTRXYAhp5PbDF5R5P9Rky',
+                        'filename' => 'document.pdf',
+                        'index' => 138,
+                        'type' => 'file_citation',
+                    ],
+                    [
+                        'file_id' => 'file-9cPRXMKyn1BmDT1K9J8Xxa',
+                        'filename' => 'example-file.md',
+                        'index' => 294,
+                        'type' => 'file_citation',
+                    ],
+                    [
+                        'file_id' => 'cfile_15vdn2c43dec8191afde1f1fc40avec6',
+                        'filename' => 'image.png',
+                        'type' => 'container_file_citation',
+                        'container_id' => 'cntr_61vcf2b258d88128b3fc109db6fv61e406ebfd5bc0cbcbce',
+                        'start_index' => 133,
+                        'end_index' => 166,
+                    ],
                 ],
                 'text' => 'As of today, March 9, 2025, one notable positive news story...',
                 'type' => 'output_text',
@@ -475,6 +664,41 @@ function outputMessageOnlyRefusal(): array
         'role' => 'assistant',
         'status' => 'completed',
         'type' => 'message',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function outputLocalShellCall(): array
+{
+    return [
+        'type' => 'local_shell_call',
+        'call_id' => 'call_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'id' => 'lc_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'action' => [
+            'command' => ['echo', 'hello'],
+            'env' => ['FOO=bar'],
+            'type' => 'exec',
+            'timeout_ms' => 1000,
+            'user' => 'www-data',
+            'working_directory' => '/var/www',
+        ],
+        'status' => 'completed',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function outputCustomToolCall(): array
+{
+    return [
+        'type' => 'custom_tool_call',
+        'call_id' => 'call_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'input' => 'ls -l',
+        'name' => 'my_custom_tool',
+        'id' => 'ct_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
     ];
 }
 
@@ -527,6 +751,49 @@ function toolRemoteMcp(): array
         'require_approval' => null,
         'allowed_tools' => null,
         'headers' => null,
+        'connector_id' => null,
+        'authorization' => null,
+        'server_description' => null,
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function toolRemoveMcpRequireApproval(): array
+{
+    return [
+        'type' => 'mcp',
+        'server_label' => 'My test MCP server',
+        'server_url' => 'https://server.example.com/mcp',
+        'require_approval' => [
+            'never' => [
+                'read_only' => null,
+                'tool_names' => ['ask_question', 'read_wiki_structure'],
+            ],
+            'always' => null,
+        ],
+        'allowed_tools' => null,
+        'headers' => null,
+        'server_description' => null,
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function toolConnectorMcp(): array
+{
+    return [
+        'type' => 'mcp',
+        'server_label' => 'Dropbox',
+        'server_url' => null,
+        'require_approval' => 'never',
+        'allowed_tools' => null,
+        'headers' => null,
+        'connector_id' => 'connector_dropbox',
+        'authorization' => '<redacted>',
+        'server_description' => null,
     ];
 }
 
@@ -550,6 +817,45 @@ function toolFileSearch(): array
         'ranking_options' => [
             'ranker' => 'bm25',
             'score_threshold' => 0.5,
+        ],
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function toolFileSearchNestedFilters(): array
+{
+    return [
+        'type' => 'file_search',
+        'filters' => [
+            'type' => 'and',
+            'filters' => [
+                [
+                    'type' => 'and',
+                    'filters' => [
+                        [
+                            'type' => 'ne',
+                            'key' => 'state',
+                            'value' => 'ks',
+                        ],
+                        [
+                            'type' => 'ne',
+                            'key' => 'state',
+                            'value' => 'mo',
+                        ],
+                    ],
+                ],
+            ],
+        ],
+        'max_num_results' => 5,
+        'ranking_options' => [
+            'ranker' => 'auto',
+            'score_threshold' => 0.1,
+        ],
+        'vector_store_ids' => [
+            'vector_store_id_1',
+            'vector_store_id_2',
         ],
     ];
 }
@@ -584,4 +890,14 @@ function responseCodeInterpreterStream()
 function responseCompletionSteamCreatedEvent()
 {
     return fopen(__DIR__.'/Streams/ResponseCreatedResponse.txt', 'r');
+}
+
+function responseReasoningTextDeltaEvent()
+{
+    return fopen(__DIR__.'/Streams/ResponseReasoningTextDelta.txt', 'r');
+}
+
+function responseReasoningTextDoneEvent()
+{
+    return fopen(__DIR__.'/Streams/ResponseReasoningTextDone.txt', 'r');
 }
