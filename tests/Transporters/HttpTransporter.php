@@ -399,10 +399,11 @@ test('error message and code may be empty', function (string $requestMethod) {
 
     expect(fn () => $this->http->$requestMethod($payload))
         ->toThrow(function (ErrorException $e) {
-            expect($e->getMessage())->toBe('Unknown error')
-                ->and($e->getErrorMessage())->toBe('Unknown error')
+            expect($e->getMessage())->toContain('API Error:')
+                ->and($e->getMessage())->toContain('invalid_request_error')
                 ->and($e->getErrorCode())->toBeNull()
-                ->and($e->getErrorType())->toBe('invalid_request_error');
+                ->and($e->getErrorType())->toBe('invalid_request_error')
+                ->and($e->getRawResponseBody())->not->toBeNull();
         });
 })->with('request methods');
 
@@ -704,7 +705,7 @@ test('transporter exception includes response body for html error responses', fu
     });
 });
 
-test('transporter exception includes openrouter style error response', function () {
+test('error exception includes openrouter style error response without error key', function () {
     $payload = Payload::list('models');
 
     $baseUri = BaseUri::from('api.openai.com');
@@ -726,9 +727,9 @@ test('transporter exception includes openrouter style error response', function 
             response: new Response(400, ['Content-Type' => 'application/json'], $responseBody)
         ));
 
-    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) use ($responseBody) {
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (ErrorException $e) use ($responseBody) {
         expect($e->getMessage())->toContain('Provider returned error')
-            ->and($e->getResponseBody())->toBe($responseBody)
+            ->and($e->getRawResponseBody())->toBe($responseBody)
             ->and($e->getStatusCode())->toBe(400);
     });
 });

@@ -177,13 +177,14 @@ final class HttpTransporter implements TransporterContract
             $data = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 
             if (isset($data['error']['metadata']['raw'])) {
-                throw new ErrorException(json_decode($data['error']['metadata']['raw'], true), $response);
+                throw new ErrorException(json_decode($data['error']['metadata']['raw'], true), $response, $contents);
             }
             if (isset($data['error'])) {
-                throw new ErrorException($data['error'], $response);
+                throw new ErrorException($data['error'], $response, $contents);
             }
+
+            throw new ErrorException($data, $response, $contents);
         } catch (JsonException $jsonException) {
-            // Due to some JSON coming back from OpenAI as text/plain, we need to avoid an early return from purely content-type checks.
             if (! str_contains($response->getHeaderLine('Content-Type'), ContentType::JSON->value)) {
                 return;
             }
