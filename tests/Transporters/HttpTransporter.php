@@ -5,8 +5,10 @@ use GuzzleHttp\Psr7\Request as Psr7Request;
 use GuzzleHttp\Psr7\Response;
 use OpenAI\Enums\Transporter\ContentType;
 use OpenAI\Exceptions\ErrorException;
+use OpenAI\Exceptions\RateLimitException;
 use OpenAI\Exceptions\TransporterException;
 use OpenAI\Exceptions\UnserializableResponse;
+use OpenAI\Responses\Models\ListResponse;
 use OpenAI\Transporters\HttpTransporter;
 use OpenAI\ValueObjects\ApiKey;
 use OpenAI\ValueObjects\Transporter\BaseUri;
@@ -31,7 +33,7 @@ beforeEach(function () {
     );
 });
 
-test('request object', function () {
+test('request object', function (string $requestMethod) {
     $payload = Payload::list('models');
 
     $response = new Response(200, ['Content-Type' => 'application/json; charset=utf-8', ...metaHeaders()], json_encode([
@@ -51,10 +53,10 @@ test('request object', function () {
             return true;
         })->andReturn($response);
 
-    $this->http->requestObject($payload);
-});
+    $this->http->$requestMethod($payload);
+})->with('request methods');
 
-test('request object response', function () {
+test('request object response', function (string $requestMethod) {
     $payload = Payload::list('models');
 
     $response = new Response(200, ['Content-Type' => 'application/json; charset=utf-8', ...metaHeaders()], json_encode([
@@ -71,7 +73,7 @@ test('request object response', function () {
         ->once()
         ->andReturn($response);
 
-    $response = $this->http->requestObject($payload);
+    $response = $this->http->$requestMethod($payload);
 
     expect($response->data())->toBe([
         [
@@ -81,9 +83,9 @@ test('request object response', function () {
             'finish_reason' => 'length',
         ],
     ]);
-});
+})->with('request methods');
 
-test('request object server user errors', function () {
+test('request object server user errors', function (string $requestMethod) {
     $payload = Payload::list('models');
 
     $response = new Response(401, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
@@ -100,7 +102,7 @@ test('request object server user errors', function () {
         ->once()
         ->andReturn($response);
 
-    expect(fn () => $this->http->requestObject($payload))
+    expect(fn () => $this->http->$requestMethod($payload))
         ->toThrow(function (ErrorException $e) {
             expect($e->getMessage())->toBe('Incorrect API key provided: foo. You can find your API key at https://platform.openai.com.')
                 ->and($e->getErrorMessage())->toBe('Incorrect API key provided: foo. You can find your API key at https://platform.openai.com.')
@@ -108,7 +110,35 @@ test('request object server user errors', function () {
                 ->and($e->getErrorType())->toBe('invalid_request_error')
                 ->and($e->getStatusCode())->toBe(401);
         });
-});
+})->with('request methods');
+
+test('request object mismatched project error', function (string $requestMethod) {
+    $payload = Payload::list('models');
+
+    $response = new Response(401, ['Content-Type' => 'text/plain; charset=utf-8'], json_encode([
+        'error' => [
+            'message' => 'OpenAI-Project header should match project for API key',
+            'type' => 'invalid_request_error',
+            'code' => 'mismatched_project',
+            'param' => null,
+        ],
+        'status' => 401,
+    ]));
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($response);
+
+    expect(fn () => $this->http->$requestMethod($payload))
+        ->toThrow(function (ErrorException $e) {
+            expect($e->getMessage())->toBe('OpenAI-Project header should match project for API key')
+                ->and($e->getErrorMessage())->toBe('OpenAI-Project header should match project for API key')
+                ->and($e->getErrorCode())->toBe('mismatched_project')
+                ->and($e->getErrorType())->toBe('invalid_request_error')
+                ->and($e->getStatusCode())->toBe(401);
+        });
+})->with('request methods');
 
 test('request object server errors', function () {
     $payload = Payload::create('completions', ['model' => 'gpt-4']);
@@ -136,7 +166,7 @@ test('request object server errors', function () {
         });
 });
 
-test('error code may be null', function () {
+test('error code may be null', function (string $requestMethod) {
     $payload = Payload::create('completions', ['model' => 'gpt-42']);
 
     $response = new Response(404, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
@@ -153,16 +183,16 @@ test('error code may be null', function () {
         ->once()
         ->andReturn($response);
 
-    expect(fn () => $this->http->requestObject($payload))
+    expect(fn () => $this->http->$requestMethod($payload))
         ->toThrow(function (ErrorException $e) {
             expect($e->getMessage())->toBe('The model `gpt-42` does not exist')
                 ->and($e->getErrorMessage())->toBe('The model `gpt-42` does not exist')
                 ->and($e->getErrorCode())->toBeNull()
                 ->and($e->getErrorType())->toBe('invalid_request_error');
         });
-});
+})->with('request methods');
 
-test('error code may be integer', function () {
+test('error code may be integer', function (string $requestMethod) {
     $payload = Payload::create('completions', ['model' => 'gpt-42']);
 
     $response = new Response(404, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
@@ -179,16 +209,60 @@ test('error code may be integer', function () {
         ->once()
         ->andReturn($response);
 
-    expect(fn () => $this->http->requestObject($payload))
+    expect(fn () => $this->http->$requestMethod($payload))
         ->toThrow(function (ErrorException $e) {
             expect($e->getMessage())->toBe('The model `gpt-42` does not exist')
                 ->and($e->getErrorMessage())->toBe('The model `gpt-42` does not exist')
                 ->and($e->getErrorCode())->toBe(123)
                 ->and($e->getErrorType())->toBe('invalid_request_error');
         });
-});
+})->with('request methods');
 
-test('error type may be null', function () {
+test('error code may be string for no permission', function (string $requestMethod) {
+    $payload = Payload::create('completions', ['model' => 'gpt-42']);
+
+    $response = new Response(404, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
+        'error' => 'You have insufficient permissions for this operation. Missing scopes: api.model.read',
+    ]));
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($response);
+
+    expect(fn () => $this->http->$requestMethod($payload))
+        ->toThrow(function (ErrorException $e) {
+            expect($e->getMessage())->toBe('You have insufficient permissions for this operation. Missing scopes: api.model.read')
+                ->and($e->getErrorMessage())->toBe('You have insufficient permissions for this operation. Missing scopes: api.model.read')
+                ->and($e->getErrorCode())->toBeNull()
+                ->and($e->getErrorType())->toBeNull();
+        });
+})->with('request methods');
+
+test('error code may have only message', function (string $requestMethod) {
+    $payload = Payload::create('completions', ['model' => 'gpt-42']);
+
+    $response = new Response(404, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
+        'error' => [
+            'message' => 'The engine is currently overloaded, please try again later',
+        ],
+    ]));
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($response);
+
+    expect(fn () => $this->http->$requestMethod($payload))
+        ->toThrow(function (ErrorException $e) {
+            expect($e->getMessage())->toBe('The engine is currently overloaded, please try again later')
+                ->and($e->getErrorMessage())->toBe('The engine is currently overloaded, please try again later')
+                ->and($e->getErrorCode())->toBeNull()
+                ->and($e->getErrorType())->toBeNull();
+        });
+})->with('request methods');
+
+test('error type may be null on 429', function (string $requestMethod) {
     $payload = Payload::list('models');
 
     $response = new Response(429, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
@@ -205,16 +279,27 @@ test('error type may be null', function () {
         ->once()
         ->andReturn($response);
 
-    expect(fn () => $this->http->requestObject($payload))
-        ->toThrow(function (ErrorException $e) {
-            expect($e->getMessage())->toBe('You exceeded your current quota, please check')
-                ->and($e->getErrorMessage())->toBe('You exceeded your current quota, please check')
-                ->and($e->getErrorCode())->toBe('quota_exceeded')
-                ->and($e->getErrorType())->toBeNull();
-        });
-});
+    expect(fn () => $this->http->$requestMethod($payload))
+        ->toThrow(RateLimitException::class);
+})->with('request methods');
 
-test('error message may be an array', function () {
+test('429 may not follow OpenAI structure', function (string $requestMethod) {
+    $payload = Payload::list('models');
+
+    $response = new Response(429, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
+        'message' => 'Requests rate limit exceeded',
+    ]));
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($response);
+
+    expect(fn () => $this->http->$requestMethod($payload))
+        ->toThrow(RateLimitException::class);
+})->with('request methods');
+
+test('error message may be an array', function (string $requestMethod) {
     $payload = Payload::create('completions', ['model' => 'gpt-4']);
 
     $response = new Response(404, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
@@ -234,16 +319,16 @@ test('error message may be an array', function () {
         ->once()
         ->andReturn($response);
 
-    expect(fn () => $this->http->requestObject($payload))
+    expect(fn () => $this->http->$requestMethod($payload))
         ->toThrow(function (ErrorException $e) {
             expect($e->getMessage())->toBe('Invalid schema for function \'get_current_weather\':'.PHP_EOL.'In context=(\'properties\', \'location\'), array schema missing items')
                 ->and($e->getErrorMessage())->toBe('Invalid schema for function \'get_current_weather\':'.PHP_EOL.'In context=(\'properties\', \'location\'), array schema missing items')
                 ->and($e->getErrorCode())->toBeNull()
                 ->and($e->getErrorType())->toBe('invalid_request_error');
         });
-});
+})->with('request methods');
 
-test('error message may be empty', function () {
+test('error message may be empty', function (string $requestMethod) {
     $payload = Payload::create('completions', ['model' => 'gpt-4']);
 
     $response = new Response(404, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
@@ -260,16 +345,16 @@ test('error message may be empty', function () {
         ->once()
         ->andReturn($response);
 
-    expect(fn () => $this->http->requestObject($payload))
+    expect(fn () => $this->http->$requestMethod($payload))
         ->toThrow(function (ErrorException $e) {
             expect($e->getMessage())->toBe('invalid_api_key')
                 ->and($e->getErrorMessage())->toBe('invalid_api_key')
                 ->and($e->getErrorCode())->toBe('invalid_api_key')
                 ->and($e->getErrorType())->toBe('invalid_request_error');
         });
-});
+})->with('request methods');
 
-test('error message may be empty and code is an integer', function () {
+test('error message may be empty and code is an integer', function (string $requestMethod) {
     $payload = Payload::create('completions', ['model' => 'gpt-4']);
 
     $response = new Response(404, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
@@ -286,16 +371,16 @@ test('error message may be empty and code is an integer', function () {
         ->once()
         ->andReturn($response);
 
-    expect(fn () => $this->http->requestObject($payload))
+    expect(fn () => $this->http->$requestMethod($payload))
         ->toThrow(function (ErrorException $e) {
             expect($e->getMessage())->toBe('123')
                 ->and($e->getErrorMessage())->toBe('123')
                 ->and($e->getErrorCode())->toBe(123)
                 ->and($e->getErrorType())->toBe('invalid_request_error');
         });
-});
+})->with('request methods');
 
-test('error message and code may be empty', function () {
+test('error message and code may be empty', function (string $requestMethod) {
     $payload = Payload::create('completions', ['model' => 'gpt-4']);
 
     $response = new Response(404, ['Content-Type' => 'application/json; charset=utf-8'], json_encode([
@@ -312,16 +397,17 @@ test('error message and code may be empty', function () {
         ->once()
         ->andReturn($response);
 
-    expect(fn () => $this->http->requestObject($payload))
+    expect(fn () => $this->http->$requestMethod($payload))
         ->toThrow(function (ErrorException $e) {
-            expect($e->getMessage())->toBe('Unknown error')
-                ->and($e->getErrorMessage())->toBe('Unknown error')
+            expect($e->getMessage())->toContain('API Error:')
+                ->and($e->getMessage())->toContain('invalid_request_error')
                 ->and($e->getErrorCode())->toBeNull()
-                ->and($e->getErrorType())->toBe('invalid_request_error');
+                ->and($e->getErrorType())->toBe('invalid_request_error')
+                ->and($e->getRawResponseBody())->not->toBeNull();
         });
-});
+})->with('request methods');
 
-test('request object client errors', function () {
+test('request object client errors', function (string $requestMethod) {
     $payload = Payload::list('models');
 
     $baseUri = BaseUri::from('api.openai.com');
@@ -333,14 +419,14 @@ test('request object client errors', function () {
         ->once()
         ->andThrow(new ConnectException('Could not resolve host.', $payload->toRequest($baseUri, $headers, $queryParams)));
 
-    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) {
+    expect(fn () => $this->http->$requestMethod($payload))->toThrow(function (TransporterException $e) {
         expect($e->getMessage())->toBe('Could not resolve host.')
             ->and($e->getCode())->toBe(0)
             ->and($e->getPrevious())->toBeInstanceOf(ConnectException::class);
     });
-});
+})->with('request methods');
 
-test('request object client error in response', function () {
+test('request object client error in response', function (string $requestMethod) {
     $payload = Payload::list('models');
 
     $baseUri = BaseUri::from('api.openai.com');
@@ -363,13 +449,13 @@ test('request object client error in response', function () {
             ]))
         ));
 
-    expect(fn () => $this->http->requestObject($payload))->toThrow(function (ErrorException $e) {
+    expect(fn () => $this->http->$requestMethod($payload))->toThrow(function (ErrorException $e) {
         expect($e->getMessage())
             ->toBe('Incorrect API key provided: foo. You can find your API key at https://platform.openai.com.');
     });
-});
+})->with('request methods');
 
-test('request object serialization errors', function () {
+test('request object serialization errors', function (string $requestMethod) {
     $payload = Payload::list('models');
 
     $response = new Response(200, ['Content-Type' => 'application/json; charset=utf-8'], 'err');
@@ -379,10 +465,24 @@ test('request object serialization errors', function () {
         ->once()
         ->andReturn($response);
 
-    $this->http->requestObject($payload);
+    $this->http->$requestMethod($payload);
+})->with('request methods')->throws(UnserializableResponse::class, 'Syntax error', 0);
+
+test('request object invalid server 404 html', function () {
+    $payload = Payload::list('models');
+
+    $response = new Response(404, ['Content-Type' => 'text/plain; charset=utf-8'], '404 page not found');
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($response);
+
+    $response = $this->http->requestObject($payload);
+    ListResponse::from($response->data(), $response->meta());
 })->throws(UnserializableResponse::class, 'Syntax error', 0);
 
-test('request plain text', function () {
+test('request string or object text', function () {
     $payload = Payload::upload('audio/transcriptions', []);
 
     $response = new Response(200, ['Content-Type' => 'text/plain; charset=utf-8', ...metaHeaders()], 'Hello, how are you?');
@@ -392,7 +492,7 @@ test('request plain text', function () {
         ->once()
         ->andReturn($response);
 
-    $response = $this->http->requestObject($payload);
+    $response = $this->http->requestStringOrObject($payload);
 
     expect($response->data())->toBe('Hello, how are you?');
 });
@@ -530,4 +630,126 @@ test('request stream server errors', function () {
                 ->and($e->getErrorCode())->toBe('invalid_api_key')
                 ->and($e->getErrorType())->toBe('invalid_request_error');
         });
+});
+
+test('addHeader does not blow out headers when adding one', function () {
+    $payload = Payload::list('models');
+
+    $this->http->addHeader('X-Test', '1');
+
+    $response = new Response(200, ['Content-Type' => 'application/json; charset=utf-8', ...metaHeaders()], json_encode(['ok' => true]));
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->withArgs(function (Psr7Request $request) {
+            expect($request->getHeaderLine('Authorization'))->toBe('Bearer foo')
+                ->and($request->getHeaderLine('Content-Type'))->toBe('application/json')
+                ->and($request->getHeaderLine('X-Test'))->toBe('1');
+
+            return true;
+        })
+        ->andReturn($response);
+
+    $this->http->requestObject($payload);
+});
+
+test('transporter exception includes response body for non-json client errors', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $responseBody = 'Bad Request: Invalid model parameter provided';
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Client error: 400 Bad Request',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(400, ['Content-Type' => 'text/plain'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) use ($responseBody) {
+        expect($e->getMessage())->toContain($responseBody)
+            ->and($e->getResponseBody())->toBe($responseBody)
+            ->and($e->getStatusCode())->toBe(400)
+            ->and($e->getResponse())->not->toBeNull();
+    });
+});
+
+test('transporter exception includes response body for html error responses', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $responseBody = '<html><body><h1>502 Bad Gateway</h1></body></html>';
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Server error: 502 Bad Gateway',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(502, ['Content-Type' => 'text/html'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) use ($responseBody) {
+        expect($e->getMessage())->toContain($responseBody)
+            ->and($e->getResponseBody())->toBe($responseBody)
+            ->and($e->getStatusCode())->toBe(502);
+    });
+});
+
+test('error exception includes openrouter style error response without error key', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $responseBody = json_encode([
+        'message' => 'Provider returned error',
+        'code' => 400,
+        'metadata' => ['provider' => 'anthropic'],
+    ]);
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Client error: 400 Bad Request',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(400, ['Content-Type' => 'application/json'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (ErrorException $e) use ($responseBody) {
+        expect($e->getMessage())->toContain('Provider returned error')
+            ->and($e->getRawResponseBody())->toBe($responseBody)
+            ->and($e->getStatusCode())->toBe(400);
+    });
+});
+
+test('transporter exception getters work without response', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new ConnectException('Could not resolve host.', $payload->toRequest($baseUri, $headers, $queryParams)));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) {
+        expect($e->getMessage())->toBe('Could not resolve host.')
+            ->and($e->getResponseBody())->toBeNull()
+            ->and($e->getStatusCode())->toBe(0)
+            ->and($e->getResponse())->toBeNull();
+    });
 });

@@ -4,6 +4,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+# v0.18.0 (2025-10-31)
+### Added
+
+* Add support for Gemini Flash (2.5 - Nano Banana) ([#685](https://github.com/openai-php/client/pull/685))
+* Add diarized JSON response in TranscriptionResponseSegment ([#706](https://github.com/openai-php/client/pull/706))
+* Add support for actions on web_search_call ([#707](https://github.com/openai-php/client/pull/707))
+* Add usage to streamed completions ([#708](https://github.com/openai-php/client/pull/708))
+
+### Fixed
+
+* Fix missing properties on container file annotation ([#703](https://github.com/openai-php/client/pull/703))
+* Fix missing containers interface on client ([#704](https://github.com/openai-php/client/pull/704))
+* Allow bytes to be nullable on ContainerFileResponse ([#705](https://github.com/openai-php/client/pull/705))
+
+# v0.17.1 (2025-10-09)
+### Fixed
+* Fix missing `Open-AI-Beta` header on all Assistant related requests. ([#701](https://github.com/openai-php/client/pull/701))
+* Fix missing `filename` property on text annotation file. ([#696](https://github.com/openai-php/client/pull/701))
+
+# v0.17.0 (2025-10-02)
+### Added
+
+* Add Conversation API ([#658](https://github.com/openai-php/client/pull/658))
+
+### Fixed
+
+* Handle object/string error responses with robust `ErrorException` ([#682](https://github.com/openai-php/client/pull/682))
+* Increase nullability on Doubao image usage types ([#684](https://github.com/openai-php/client/pull/684))
+* Add missing pagination fields to `files.list` ([#687](https://github.com/openai-php/client/pull/687))
+* Fix undefined array key errors for xAI Responses API ([#689](https://github.com/openai-php/client/pull/689))
+* Prevent registration of beta headers on all requests ([#688](https://github.com/openai-php/client/pull/688))
+
+### Changed
+
+* Deprecate Assistants API officially ([#679](https://github.com/openai-php/client/pull/679))
+
+# v0.16.1 (2025-09-04)
+### Added
+
+* Add `sequence_number` support to `OutputTextDelta` ([#664](https://github.com/openai-php/client/pull/664))
+* Add `web-search` tool option ([#665](https://github.com/openai-php/client/pull/665))
+* Add support for reasoning text streaming events ([#673](https://github.com/openai-php/client/pull/673))
+
+### Fixed
+
+* Handle optional attributes in CreateResponse ([#662](https://github.com/openai-php/client/pull/662))
+* Handle null require_approval in Response API ([#669](https://github.com/openai-php/client/pull/669))
+* Support mcp error objects in response api ([#661](https://github.com/openai-php/client/pull/661))
+* Support nested file search properties ([#670](https://github.com/openai-php/client/pull/670))
+* Add missing properties to ListInputItems call ([#668](https://github.com/openai-php/client/pull/668))
+* Remove extra spaces from json keys in ThreadRunStreamResponseFixture.txt ([#674](https://github.com/openai-php/client/pull/674))
+
+# v0.16.0 (2025-08-26)
+### Added
+
+* Add GPT-5 support ([#639](https://github.com/openai-php/client/pull/639))
+* Add support for `reasoning.summary` field ([#642](https://github.com/openai-php/client/pull/642))
+* Add Container File API ([#648](https://github.com/openai-php/client/pull/648))
+* Added raw response to Exceptions ([#643](https://github.com/openai-php/client/pull/643))
+* Add `OverrideStrategy` enum for fakeable trait to support merge/replace ([#646](https://github.com/openai-php/client/pull/646))
+
+### Fixed
+
+* Fix support for fine-tuning with failed tuning job ([#651](https://github.com/openai-php/client/pull/651))
+* Fix Response API support for MCP Connectors ([#654](https://github.com/openai-php/client/pull/654))
+
+### Changed
+
+* Rework exception handling to catch unhandled string/array crashes. ([#643](https://github.com/openai-php/client/pull/643))
+* Detect HTTP 429 and throw RateLimitException ([#652](https://github.com/openai-php/client/pull/652))
+
 ## v0.15.0 (2025-08-04)
 ### Added
 

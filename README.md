@@ -23,12 +23,17 @@ If you or your business relies on this package, it's important to support the de
 
 - Nuno Maduro: **[github.com/sponsors/nunomaduro](https://github.com/sponsors/nunomaduro)**
 - Sandro Gehri: **[github.com/sponsors/gehrisandro](https://github.com/sponsors/gehrisandro)**
+- Connor Tumbleson: **[github.com/sponsors/iBotPeaches](https://github.com/sponsors/iBotPeaches)**
 
 ## Table of Contents
 - [Get Started](#get-started)
 - [Usage](#usage)
   - [Models Resource](#models-resource)
   - [Responses Resource](#responses-resource)
+  - [Conversations Resource](#conversations-resource)
+  - [Conversations Items Resource](#conversations-items-resource)
+  - [Containers Resource](#containers-resource)
+  - [Containers Files Resource](#containers-files-resource)
   - [Chat Resource](#chat-resource)
   - [Audio Resource](#audio-resource)
   - [Embeddings Resource](#embeddings-resource)
@@ -52,6 +57,7 @@ If you or your business relies on this package, it's important to support the de
 - [Meta Information](#meta-information)
 - [Troubleshooting](#troubleshooting)
 - [Testing](#testing)
+- [Webhooks][#webhooks]
 - [Services](#services)
   - [Azure](#azure)
 
@@ -76,14 +82,12 @@ Then, interact with OpenAI's API:
 $yourApiKey = getenv('YOUR_API_KEY');
 $client = OpenAI::client($yourApiKey);
 
-$result = $client->chat()->create([
+$response = $client->responses()->create([
     'model' => 'gpt-4o',
-    'messages' => [
-        ['role' => 'user', 'content' => 'Hello!'],
-    ],
+    'input' => 'Hello!',
 ]);
 
-echo $result->choices[0]->message->content; // Hello! How can I assist you today?
+echo $response->outputText; // Hello! How can I assist you today?
 ```
 
 If necessary, it is possible to configure and create a separate client.
@@ -187,6 +191,7 @@ $response->object; // 'response'
 $response->createdAt; // 1741476542
 $response->status; // 'completed'
 $response->model; // 'gpt-4o-mini'
+$response->outputText; // 'The combined response text of any `output_text` content.'
 
 foreach ($response->output as $output) {
     $output->type; // 'message'
@@ -206,6 +211,50 @@ $response->usage->outputTokens; // 87
 $response->usage->totalTokens; // 123
 
 $response->toArray(); // ['id' => 'resp_67ccd2bed1ec8190b14f964abc054267', ...]
+```
+
+Create a model response with a function tool.
+
+```php
+$response = $client->responses()->create([
+    'model' => 'gpt-4o-mini',
+    'tools' => [
+        [
+            'type' => 'function',
+            'name' => 'get_temperature',
+            'description' => 'Get the current temperature in a given location',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'location' => [
+                        'type' => 'string',
+                        'description' => 'The city and state, e.g. San Francisco, CA',
+                    ],
+                    'unit' => [
+                        'type' => 'string',
+                        'enum' => ['celsius', 'fahrenheit'],
+                    ],
+                ],
+                'required' => ['location'],
+            ],
+        ]
+    ],
+    'input' => "What is the temperature in Rio Grande do Norte, Brazil?",
+]);
+
+foreach ($response->output as $item) {
+    if ($item->type === 'function_call') {
+        $name = $item->name ?? null;
+        $args = json_decode($item->arguments ?? '{}', true) ?: [];
+
+        if ($name === 'get_temperature') {
+            // ✅ Call your custom function here with the extracted arguments
+            // Example:
+            // $temperature = get_temperature($args['location'], $args['unit'] ?? 'celsius');
+            // Then, send the result back to the model if needed.
+        }
+    }
+}
 ```
 
 #### `create streamed`
@@ -253,6 +302,20 @@ $response->topP; // 1.0
 $response->truncation; // 'disabled'
 
 $response->toArray(); // ['id' => 'resp_67ccd2bed1ec8190b14f964abc054267', ...]
+```
+
+#### `retrieve streamed`
+
+When you retrieve a Response with stream set to true, the server will emit server-sent events to the client as the Response is generated. All events and their payloads can be found in [OpenAI docs](https://platform.openai.com/docs/api-reference/responses-streaming).
+
+```php
+$stream = $client->responses()->retrieveStreamed('resp_67ccd2bed1ec8190b14f964abc054267', [
+    'starting_after' => '2',
+]);
+
+foreach ($stream as $response) {
+    $response->event; // 'response.created'
+}
 ```
 
 #### `cancel`
@@ -308,58 +371,323 @@ $response->hasMore; // false
 $response->toArray(); // ['object' => 'list', 'data' => [...], ...]
 ```
 
-### `Completions` Resource
+### `Conversations` Resource
 
 #### `create`
 
-Creates a completion for the provided prompt and parameters.
+Create a conversation.
 
 ```php
-$response = $client->completions()->create([
-    'model' => 'gpt-3.5-turbo-instruct',
-    'prompt' => 'Say this is a test',
-    'max_tokens' => 6,
-    'temperature' => 0
+$response = $client->conversations()->create([
+    'metadata' => ['topic' => 'demo'],
+    'items' => [
+        [
+            'type' => 'message',
+            'role' => 'user',
+            'content' => 'Hello!'
+        ],
+    ],
 ]);
 
-$response->id; // 'cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7'
-$response->object; // 'text_completion'
-$response->created; // 1589478378
-$response->model; // 'gpt-3.5-turbo-instruct'
+$response->id; // 'conv_123'
+$response->object; // 'conversation'
+$response->createdAt; // 1741900000
+$response->metadata; // ['topic' => 'demo']
 
-foreach ($response->choices as $choice) {
-    $choice->text; // '\n\nThis is a test'
-    $choice->index; // 0
-    $choice->logprobs; // null
-    $choice->finishReason; // 'length' or null
-}
-
-$response->usage->promptTokens; // 5,
-$response->usage->completionTokens; // 6,
-$response->usage->totalTokens; // 11
-
-$response->toArray(); // ['id' => 'cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7', ...]
+$response->toArray(); // ['id' => 'conv_123', 'object' => 'conversation', ...]
 ```
 
-#### `create streamed`
+#### `retrieve`
 
-Creates a streamed completion for the provided prompt and parameters.
+Retrieve a conversation by ID.
 
 ```php
-$stream = $client->completions()->createStreamed([
-        'model' => 'gpt-3.5-turbo-instruct',
-        'prompt' => 'Hi',
-        'max_tokens' => 10,
-    ]);
+$response = $client->conversations()->retrieve('conv_123');
 
-foreach($stream as $response){
-    $response->choices[0]->text;
+$response->id; // 'conv_123'
+$response->object; // 'conversation'
+$response->createdAt; // 1741900000
+
+$response->toArray(); // ['id' => 'conv_123', 'object' => 'conversation', ...]
+```
+
+#### `update`
+
+Update a conversation by ID.
+
+```php
+$response = $client->conversations()->update('conv_123', [
+    'metadata' => ['foo' => 'bar'],
+]);
+
+$response->id; // 'conv_123'
+$response->metadata; // ['foo' => 'bar']
+```
+
+#### `delete`
+
+Delete a conversation by ID.
+
+```php
+$response = $client->conversations()->delete('conv_123');
+
+$response->id; // 'conv_123'
+$response->object; // 'conversation.deleted'
+$response->deleted; // true
+
+$response->toArray(); // ['id' => 'conv_123', 'object' => 'conversation.deleted', 'deleted' => true]
+```
+
+### `Conversations Items` Resource
+
+#### `create`
+
+Create items for a conversation.
+
+```php
+$response = $client->conversations()->items()->create('conv_123', [
+    'items' => [
+        [
+            'role' => 'system',
+            'content' => 'Refer to me as PHPBot.',
+        ],
+    ],
+]);
+
+foreach ($response->data as $listItem) {
+    $listItem->item; // The created item (e.g., message)
 }
-// 1. iteration => 'I'
-// 2. iteration => ' am'
-// 3. iteration => ' very'
-// 4. iteration => ' excited'
-// ...
+
+$response->firstId; // 'msg_abc'
+$response->lastId; // 'msg_abc'
+$response->hasMore; // false
+
+$response->toArray(); // ['object' => 'list', 'data' => [...], ...]
+```
+
+#### `list`
+
+List items for a conversation.
+
+```php
+$response = $client->conversations()->items()->list('conv_123', [
+    'limit' => 10,
+]);
+
+$response->object; // 'list'
+```
+
+#### `retrieve`
+
+Retrieve a specific item from a conversation.
+
+```php
+$response = $client->conversations()->items()->retrieve('conv_123', 'msg_abc', [
+    'include' => ['step_details'],
+]);
+
+$response->id; // 'msg_abc'
+$response->type; // 'message'
+$response->status; // 'completed'
+```
+
+#### `delete`
+
+Delete a specific item from a conversation. Returns the updated conversation.
+
+```php
+$response = $client->conversations()->items()->delete('conv_123', 'msg_abc');
+
+$response->id; // 'conv_123'
+$response->object; // 'conversation'
+```
+
+### `Containers` Resource
+
+#### `create`
+
+Creates a container for use with the Code Interpreter tool.
+
+```php
+$response = $client->containers()->create([
+    'name' => 'My Container',
+    'expires_after' => [
+        'anchor' => 'last_active_at',
+        'minutes' => 60,
+    ],
+]);
+
+$response->id; // 'container_abc123'
+$response->object; // 'container'
+$response->createdAt; // 1690000000
+$response->status; // 'active'
+$response->expiresAfter->anchor; // 'last_active_at'
+$response->expiresAfter->minutes; // 60
+$response->lastActiveAt; // 1690001000
+$response->name; // 'My Container'
+
+$response->toArray(); // ['id' => 'container_abc123', 'object' => 'container', ...]
+```
+
+#### `list`
+
+Returns a list of containers.
+
+```php
+$response = $client->containers()->list([
+    'limit' => 10,
+    'order' => 'desc',
+]);
+
+$response->object; // 'list'
+
+foreach ($response->data as $container) {
+    $container->id; // 'container_abc123'
+    $container->object; // 'container'
+    $container->createdAt; // 1690000000
+    $container->status; // 'active'
+    $container->expiresAfter->anchor; // 'last_active_at'
+    $container->expiresAfter->minutes; // 60
+    $container->lastActiveAt; // 1690001000
+    $container->name; // 'Test Container'
+}
+
+$response->firstId; // 'container_abc123'
+$response->lastId; // 'container_def456'
+$response->hasMore; // false
+
+$response->toArray(); // ['object' => 'list', 'data' => [...], ...]
+```
+
+#### `retrieve`
+
+Retrieves a container with the given ID.
+
+```php
+$response = $client->containers()->retrieve('container_abc123');
+
+$response->id; // 'container_abc123'
+$response->object; // 'container'
+$response->createdAt; // 1690000000
+$response->status; // 'active'
+$response->expiresAfter->anchor; // 'last_active_at'
+$response->expiresAfter->minutes; // 60
+$response->lastActiveAt; // 1690001000
+$response->name; // 'Test Container'
+
+$response->toArray(); // ['id' => 'container_abc123', 'object' => 'container', ...]
+```
+
+#### `delete`
+
+Delete a container with the given ID.
+
+```php
+$response = $client->containers()->delete('container_abc123');
+
+$response->id; // 'container_abc123'
+$response->object; // 'container'
+$response->deleted; // true
+
+$response->toArray(); // ['id' => 'container_abc123', 'object' => 'container', 'deleted' => true]
+```
+
+### `Containers Files` Resource
+
+#### `create`
+
+Create or upload a file into a container.
+
+```php
+$response = $client->containers()->files()->create('container_abc123', [
+    'file' => fopen('path/to/local-file.txt', 'r'),
+]);
+$response = $client->containers()->files()->create('container_abc123', [
+    'file_id' => 'file_XjGxS3KTG0uNmNOK362iJua3',
+]);
+
+$response->id; // 'cfile_682e0e8a43c88191a7978f477a09bdf5'
+$response->object; // 'container.file'
+$response->createdAt; // 1747848842
+$response->bytes; // 880
+$response->containerId; // 'container_abc123'
+$response->path; // '/mnt/data/local-file.txt'
+$response->source; // 'user'
+
+$response->toArray(); // ['id' => 'cfile_...', 'object' => 'container.file', ...]
+```
+
+> [!NOTE]
+> You must provide either `file` or `file_id`, but not both.
+
+#### `list`
+
+Returns a list of files in the container.
+
+```php
+$response = $client->containers()->files()->list('container_abc123', [
+    'limit' => 10,
+    'order' => 'desc',
+]);
+
+$response->object; // 'list'
+
+foreach ($response->data as $file) {
+    $file->id; // 'cfile_682e0e8a43c88191a7978f477a09bdf5'
+    $file->object; // 'container.file'
+    $file->createdAt; // 1747848842
+    $file->bytes; // 880
+    $file->containerId; // 'container_abc123'
+    $file->path; // '/mnt/data/...' 
+    $file->source; // 'user'
+}
+
+$response->firstId; // 'cfile_...'
+$response->lastId; // 'cfile_...'
+$response->hasMore; // false
+
+$response->toArray(); // ['object' => 'list', 'data' => [...], ...]
+```
+
+#### `retrieve`
+
+Retrieve information about a container file.
+
+```php
+$response = $client->containers()->files()->retrieve('container_abc123', 'cfile_682e0e8a43c88191a7978f477a09bdf5');
+
+$response->id; // 'cfile_682e0e8a43c88191a7978f477a09bdf5'
+$response->object; // 'container.file'
+$response->createdAt; // 1747848842
+$response->bytes; // 880
+$response->containerId; // 'container_abc123'
+$response->path; // '/mnt/data/...'
+$response->source; // 'user'
+
+$response->toArray(); // ['id' => 'cfile_...', 'object' => 'container.file', ...]
+```
+
+#### `retrieve content`
+
+Returns the raw content of the specified container file.
+
+```php
+$content = $client->containers()->files()->content('container_abc123', 'cfile_682e0e8a43c88191a7978f477a09bdf5');
+// $content => string
+```
+
+#### `delete`
+
+Delete a container file.
+
+```php
+$response = $client->containers()->files()->delete('container_abc123', 'cfile_682e0e8a43c88191a7978f477a09bdf5');
+
+$response->id; // 'cfile_682e0e8a43c88191a7978f477a09bdf5'
+$response->object; // 'container.file.deleted'
+$response->deleted; // true
+
+$response->toArray(); // ['id' => 'cfile_...', 'object' => 'container.file.deleted', 'deleted' => true]
 ```
 
 ### `Chat` Resource
@@ -966,6 +1294,24 @@ foreach ($response->data as $data) {
 $response->toArray(); // ['created' => 1589478378, data => ['url' => 'https://oaidalleapiprodscus...', ...]]
 ```
 
+#### `create streamed`
+
+When you create an image with stream set to true, the server will emit server-sent events to the client as the image is generated. All events and their payloads can be found in [OpenAI docs](https://platform.openai.com/docs/api-reference/images-streaming).
+
+```php
+$stream = $client->images()->createStreamed([
+    'model' => 'gpt-image-1',
+    'prompt' => 'A cute baby sea otter',
+    'n' => 1,
+    'size' => '1024x1024',
+    'response_format' => 'url',
+]);
+
+foreach ($stream as $image) {
+    $image->type; // 'image_generation.partial_image'
+}
+```
+
 #### `edit`
 
 Creates an edited or extended image given an original image and a prompt.
@@ -988,6 +1334,24 @@ foreach ($response->data as $data) {
 }
 
 $response->toArray(); // ['created' => 1589478378, data => ['url' => 'https://oaidalleapiprodscus...', ...]]
+```
+
+#### `edit streamed`
+
+When you edit an image with stream set to true, the server will emit server-sent events to the client as the image is generated. All events and their payloads can be found in [OpenAI docs](https://platform.openai.com/docs/api-reference/images-streaming).
+
+```php
+$stream = $client->images()->editStreamed([
+    'model' => 'gpt-image-1',
+    'prompt' => 'A cute baby sea otter',
+    'n' => 1,
+    'size' => '1024x1024',
+    'response_format' => 'url',
+]);
+
+foreach ($stream as $image) {
+    $image->type; // 'image_generation.partial_image'
+}
 ```
 
 #### `variation`
@@ -1588,7 +1952,7 @@ foreach($stream as $response){
 ### `Assistants` Resource (deprecated)
 
 > [!WARNING]
-> OpenAI has deprecated the Assistants API and will stop working by first half of 2026. https://platform.openai.com/docs/guides/responses-vs-chat-completions#assistants
+> OpenAI has deprecated the Assistants API and will stop working by August 26, 2026. https://platform.openai.com/docs/guides/migrate-to-responses#assistants-api
 
 <details>
 <summary>Assistants API Information</summary>
@@ -1722,7 +2086,7 @@ $response->toArray(); // ['object' => 'list', ...]]
 ### `Threads` Resource (deprecated)
 
 > [!WARNING]
-> OpenAI has deprecated the Assistants API and will stop working by first half of 2026. https://platform.openai.com/docs/guides/responses-vs-chat-completions#assistants
+> OpenAI has deprecated the Assistants API and will stop working by August 26, 2026. https://platform.openai.com/docs/guides/migrate-to-responses#assistants-api
 
 <details>
 <summary>Threads API Information</summary>
@@ -1849,7 +2213,7 @@ $response->toArray(); // ['id' => 'thread_tKFLqzRN9n7MnyKKvc1Q7868', ...]
 ### `Thread Messages` Resource (deprecated)
 
 > [!WARNING]
-> OpenAI has deprecated the Assistants API and will stop working by first half of 2026. https://platform.openai.com/docs/guides/responses-vs-chat-completions#assistants
+> OpenAI has deprecated the Assistants API and will stop working by August 26, 2026. https://platform.openai.com/docs/guides/migrate-to-responses#assistants-api
 
 <details>
 <summary>Thread Messages API Information</summary>
@@ -1993,7 +2357,7 @@ $response->toArray(); // ['object' => 'list', ...]]
 ### `Thread Runs` Resource (deprecated)
 
 > [!WARNING]
-> OpenAI has deprecated the Assistants API and will stop working by first half of 2026. https://platform.openai.com/docs/guides/responses-vs-chat-completions#assistants
+> OpenAI has deprecated the Assistants API and will stop working by August 26, 2026. https://platform.openai.com/docs/guides/migrate-to-responses#assistants-api
 
 <details>
 <summary>Thread Runs API Information</summary>
@@ -2316,7 +2680,7 @@ $response->toArray(); // ['object' => 'list', ...]]
 ### `Thread Run Steps` Resource (deprecated)
 
 > [!WARNING]
-> OpenAI has deprecated the Assistants API and will stop working by first half of 2026. https://platform.openai.com/docs/guides/responses-vs-chat-completions#assistants
+> OpenAI has deprecated the Assistants API and will stop working by August 26, 2026. https://platform.openai.com/docs/guides/migrate-to-responses#assistants-api
 
 <details>
 <summary>Thread Run Steps API Information</summary>
@@ -2749,6 +3113,25 @@ $completion = $client->completions()->create([
     'model' => 'gpt-3.5-turbo-instruct',
     'prompt' => 'PHP is ',
 ]);
+```
+
+## Webhooks
+
+The package includes a signature verifier for OpenAI webhooks. To verify the signature of incoming webhook requests, you can use the `OpenAI\Webhooks\SignatureVerifier` class.
+
+```php
+use OpenAI\Webhooks\SignatureVerifier;
+use OpenAI\Exceptions\WebhookVerificationException;
+
+$verifier = new SignatureVerifier('whsec_{your-webhook-signing-secret}');
+
+try {
+    $verifier->verify($incomingRequest);
+    
+    // The request is verified
+} catch (WebhookVerificationException $exception) {
+    // The request could not be verified
+}
 ```
 
 ## Services
