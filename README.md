@@ -57,6 +57,7 @@ If you or your business relies on this package, it's important to support the de
 - [Meta Information](#meta-information)
 - [Troubleshooting](#troubleshooting)
 - [Testing](#testing)
+- [Webhooks][#webhooks]
 - [Services](#services)
   - [Azure](#azure)
 
@@ -1293,6 +1294,24 @@ foreach ($response->data as $data) {
 $response->toArray(); // ['created' => 1589478378, data => ['url' => 'https://oaidalleapiprodscus...', ...]]
 ```
 
+#### `create streamed`
+
+When you create an image with stream set to true, the server will emit server-sent events to the client as the image is generated. All events and their payloads can be found in [OpenAI docs](https://platform.openai.com/docs/api-reference/images-streaming).
+
+```php
+$stream = $client->images()->createStreamed([
+    'model' => 'gpt-image-1',
+    'prompt' => 'A cute baby sea otter',
+    'n' => 1,
+    'size' => '1024x1024',
+    'response_format' => 'url',
+]);
+
+foreach ($stream as $image) {
+    $image->type; // 'image_generation.partial_image'
+}
+```
+
 #### `edit`
 
 Creates an edited or extended image given an original image and a prompt.
@@ -1315,6 +1334,24 @@ foreach ($response->data as $data) {
 }
 
 $response->toArray(); // ['created' => 1589478378, data => ['url' => 'https://oaidalleapiprodscus...', ...]]
+```
+
+#### `edit streamed`
+
+When you edit an image with stream set to true, the server will emit server-sent events to the client as the image is generated. All events and their payloads can be found in [OpenAI docs](https://platform.openai.com/docs/api-reference/images-streaming).
+
+```php
+$stream = $client->images()->editStreamed([
+    'model' => 'gpt-image-1',
+    'prompt' => 'A cute baby sea otter',
+    'n' => 1,
+    'size' => '1024x1024',
+    'response_format' => 'url',
+]);
+
+foreach ($stream as $image) {
+    $image->type; // 'image_generation.partial_image'
+}
 ```
 
 #### `variation`
@@ -3076,6 +3113,25 @@ $completion = $client->completions()->create([
     'model' => 'gpt-3.5-turbo-instruct',
     'prompt' => 'PHP is ',
 ]);
+```
+
+## Webhooks
+
+The package includes a signature verifier for OpenAI webhooks. To verify the signature of incoming webhook requests, you can use the `OpenAI\Webhooks\SignatureVerifier` class.
+
+```php
+use OpenAI\Webhooks\SignatureVerifier;
+use OpenAI\Exceptions\WebhookVerificationException;
+
+$verifier = new SignatureVerifier('whsec_{your-webhook-signing-secret}');
+
+try {
+    $verifier->verify($incomingRequest);
+    
+    // The request is verified
+} catch (WebhookVerificationException $exception) {
+    // The request could not be verified
+}
 ```
 
 ## Services
