@@ -31,8 +31,8 @@ final class OutputFunctionToolCall implements ResponseContract
         public readonly string $callId,
         public readonly string $name,
         public readonly string $type,
-        public readonly string $id,
-        public readonly string $status,
+        public readonly ?string $id,
+        public readonly ?string $status,
     ) {}
 
     /**
@@ -45,8 +45,8 @@ final class OutputFunctionToolCall implements ResponseContract
             callId: $attributes['call_id'],
             name: $attributes['name'],
             type: $attributes['type'],
-            id: $attributes['id'],
-            status: $attributes['status'],
+            id: $attributes['id'] ?? null,
+            status: $attributes['status'] ?? null,
         );
     }
 
