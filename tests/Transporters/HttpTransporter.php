@@ -652,3 +652,103 @@ test('addHeader does not blow out headers when adding one', function () {
 
     $this->http->requestObject($payload);
 });
+
+test('transporter exception includes response body for non-json client errors', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $responseBody = 'Bad Request: Invalid model parameter provided';
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Client error: 400 Bad Request',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(400, ['Content-Type' => 'text/plain'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) use ($responseBody) {
+        expect($e->getMessage())->toContain($responseBody)
+            ->and($e->getResponseBody())->toBe($responseBody)
+            ->and($e->getStatusCode())->toBe(400)
+            ->and($e->getResponse())->not->toBeNull();
+    });
+});
+
+test('transporter exception includes response body for html error responses', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $responseBody = '<html><body><h1>502 Bad Gateway</h1></body></html>';
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Server error: 502 Bad Gateway',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(502, ['Content-Type' => 'text/html'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) use ($responseBody) {
+        expect($e->getMessage())->toContain($responseBody)
+            ->and($e->getResponseBody())->toBe($responseBody)
+            ->and($e->getStatusCode())->toBe(502);
+    });
+});
+
+test('transporter exception includes openrouter style error response', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $responseBody = json_encode([
+        'message' => 'Provider returned error',
+        'code' => 400,
+        'metadata' => ['provider' => 'anthropic'],
+    ]);
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Client error: 400 Bad Request',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(400, ['Content-Type' => 'application/json'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) use ($responseBody) {
+        expect($e->getMessage())->toContain('Provider returned error')
+            ->and($e->getResponseBody())->toBe($responseBody)
+            ->and($e->getStatusCode())->toBe(400);
+    });
+});
+
+test('transporter exception getters work without response', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new ConnectException('Could not resolve host.', $payload->toRequest($baseUri, $headers, $queryParams)));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (TransporterException $e) {
+        expect($e->getMessage())->toBe('Could not resolve host.')
+            ->and($e->getResponseBody())->toBeNull()
+            ->and($e->getStatusCode())->toBe(0)
+            ->and($e->getResponse())->toBeNull();
+    });
+});

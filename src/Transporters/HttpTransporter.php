@@ -140,11 +140,16 @@ final class HttpTransporter implements TransporterContract
         try {
             return $callable();
         } catch (ClientExceptionInterface $clientException) {
+            $response = null;
+            $responseBody = null;
+
             if ($clientException instanceof ClientException) {
-                $this->throwIfJsonError($clientException->getResponse(), (string) $clientException->getResponse()->getBody());
+                $response = $clientException->getResponse();
+                $responseBody = (string) $response->getBody();
+                $this->throwIfJsonError($response, $responseBody);
             }
 
-            throw new TransporterException($clientException);
+            throw new TransporterException($clientException, $response, $responseBody);
         }
     }
 
