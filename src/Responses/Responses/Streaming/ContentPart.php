@@ -11,6 +11,7 @@ use OpenAI\Responses\Concerns\HasMetaInformation;
 use OpenAI\Responses\Meta\MetaInformation;
 use OpenAI\Responses\Responses\Output\OutputMessageContentOutputText;
 use OpenAI\Responses\Responses\Output\OutputMessageContentRefusal;
+use OpenAI\Responses\Responses\Output\OutputReasoningSummary;
 use OpenAI\Testing\Responses\Concerns\Fakeable;
 
 /**
@@ -36,7 +37,7 @@ final class ContentPart implements ResponseContract, ResponseHasMetaInformationC
         public readonly int $contentIndex,
         public readonly string $itemId,
         public readonly int $outputIndex,
-        public readonly OutputMessageContentOutputText|OutputMessageContentRefusal $part,
+        public readonly OutputMessageContentOutputText|OutputMessageContentRefusal|OutputReasoningSummary $part,
         private readonly MetaInformation $meta,
     ) {}
 
@@ -48,6 +49,12 @@ final class ContentPart implements ResponseContract, ResponseHasMetaInformationC
         $part = match ($attributes['part']['type']) {
             'output_text' => OutputMessageContentOutputText::from($attributes['part']),
             'refusal' => OutputMessageContentRefusal::from($attributes['part']),
+            'summary_text' => OutputReasoningSummary::from($attributes['part']),
+            default => OutputMessageContentOutputText::from([
+                'type' => $attributes['part']['type'],
+                'text' => $attributes['part']['text'] ?? '',
+                'annotations' => $attributes['part']['annotations'] ?? [],
+            ]),
         };
 
         return new self(
