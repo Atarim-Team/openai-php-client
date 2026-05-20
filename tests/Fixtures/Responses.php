@@ -550,6 +550,28 @@ function outputBasicMessage(): array
         'role' => 'assistant',
         'status' => 'completed',
         'type' => 'message',
+        'phase' => null,
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function outputBasicMessageWithPhase(): array
+{
+    return [
+        'content' => [
+            [
+                'annotations' => [],
+                'text' => 'This is the final answer.',
+                'type' => 'output_text',
+            ],
+        ],
+        'id' => 'msg_67ccf190ca3881909d433c50b1f6357e087bb177ab789d5c',
+        'role' => 'assistant',
+        'status' => 'completed',
+        'type' => 'message',
+        'phase' => 'final_answer',
     ];
 }
 
@@ -645,6 +667,7 @@ function outputAnnotationMessage(): array
         'role' => 'assistant',
         'status' => 'completed',
         'type' => 'message',
+        'phase' => null,
     ];
 }
 
@@ -664,6 +687,7 @@ function outputMessageOnlyRefusal(): array
         'role' => 'assistant',
         'status' => 'completed',
         'type' => 'message',
+        'phase' => null,
     ];
 }
 
@@ -699,6 +723,25 @@ function outputCustomToolCall(): array
         'input' => 'ls -l',
         'name' => 'my_custom_tool',
         'id' => 'ct_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+    ];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function outputImageGenerationToolCall(): array
+{
+    return [
+        'id' => 'ig_67ccf18f64008190a39b619f4c8455ef087bb177ab789d5c',
+        'result' => 'iVBORw0KGgoAAAAN...',
+        'status' => 'completed',
+        'type' => 'image_generation_call',
+        'action' => 'generate',
+        'background' => 'opaque',
+        'output_format' => 'webp',
+        'quality' => 'high',
+        'revised_prompt' => 'This is a revised prompt.',
+        'size' => '1536x1024',
     ];
 }
 
@@ -900,4 +943,9 @@ function responseReasoningTextDeltaEvent()
 function responseReasoningTextDoneEvent()
 {
     return fopen(__DIR__.'/Streams/ResponseReasoningTextDone.txt', 'r');
+}
+
+function responseRateLimitsUpdatedEvent()
+{
+    return fopen(__DIR__.'/Streams/ResponseRateLimitsUpdated.txt', 'r');
 }
