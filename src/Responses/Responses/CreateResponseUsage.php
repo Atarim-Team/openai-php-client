@@ -12,7 +12,7 @@ use OpenAI\Testing\Responses\Concerns\Fakeable;
  * @phpstan-import-type InputTokenDetailsType from CreateResponseUsageInputTokenDetails
  * @phpstan-import-type OutputTokenDetailsType from CreateResponseUsageOutputTokenDetails
  *
- * @phpstan-type UsageType array{input_tokens: int, input_tokens_details: InputTokenDetailsType, output_tokens: int, output_tokens_details: OutputTokenDetailsType, total_tokens: int}
+ * @phpstan-type UsageType array{input_tokens: int, input_tokens_details: InputTokenDetailsType, output_tokens: int, output_tokens_details: OutputTokenDetailsType, total_tokens: int, cost?: float|int|null}
  *
  * @implements ResponseContract<UsageType>
  */
@@ -31,6 +31,7 @@ final class CreateResponseUsage implements ResponseContract
         public readonly int $outputTokens,
         public readonly CreateResponseUsageOutputTokenDetails $outputTokensDetails,
         public readonly int $totalTokens,
+        public readonly ?float $cost = null,
     ) {}
 
     /**
@@ -44,6 +45,7 @@ final class CreateResponseUsage implements ResponseContract
             outputTokens: $attributes['output_tokens'],
             outputTokensDetails: CreateResponseUsageOutputTokenDetails::from($attributes['output_tokens_details']),
             totalTokens: $attributes['total_tokens'],
+            cost: isset($attributes['cost']) ? (float) $attributes['cost'] : null,
         );
     }
 
@@ -58,6 +60,7 @@ final class CreateResponseUsage implements ResponseContract
             'output_tokens' => $this->outputTokens,
             'output_tokens_details' => $this->outputTokensDetails->toArray(),
             'total_tokens' => $this->totalTokens,
+            'cost' => $this->cost,
         ];
     }
 }
