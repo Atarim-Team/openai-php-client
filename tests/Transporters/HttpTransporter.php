@@ -786,6 +786,111 @@ test('error exception includes openrouter style error response without error key
     });
 });
 
+test('error exception survives an openrouter raw passthrough that is not json', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    // OpenRouter forwards the provider's body verbatim; it is often not JSON.
+    $responseBody = json_encode([
+        'error' => [
+            'message' => 'Provider returned error',
+            'code' => 400,
+            'metadata' => [
+                'provider' => 'anthropic',
+                'raw' => '<html><head><title>400 Bad Request</title></head></html>',
+            ],
+        ],
+    ]);
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Client error: 400 Bad Request',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(400, ['Content-Type' => 'application/json'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (ErrorException $e) use ($responseBody) {
+        expect($e->getMessage())->toContain('400 Bad Request')
+            ->and($e->getRawResponseBody())->toBe($responseBody)
+            ->and($e->getStatusCode())->toBe(400);
+    });
+});
+
+test('error exception unwraps an openrouter raw passthrough that carries its own error envelope', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $responseBody = json_encode([
+        'error' => [
+            'message' => 'Provider returned error',
+            'code' => 400,
+            'metadata' => [
+                'provider' => 'google',
+                'raw' => json_encode([
+                    'error' => [
+                        'code' => 400,
+                        'message' => 'Request contains an invalid argument.',
+                        'status' => 'INVALID_ARGUMENT',
+                    ],
+                ]),
+            ],
+        ],
+    ]);
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Client error: 400 Bad Request',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(400, ['Content-Type' => 'application/json'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (ErrorException $e) {
+        expect($e->getMessage())->toBe('Request contains an invalid argument.')
+            ->and($e->getErrorCode())->toBe(400)
+            ->and($e->getStatusCode())->toBe(400);
+    });
+});
+
+test('error exception falls back to the openrouter error when the raw passthrough is empty', function () {
+    $payload = Payload::list('models');
+
+    $baseUri = BaseUri::from('api.openai.com');
+    $headers = Headers::withAuthorization(ApiKey::from('foo'));
+    $queryParams = QueryParams::create();
+
+    $responseBody = json_encode([
+        'error' => [
+            'message' => 'Provider returned error',
+            'code' => 429,
+            'metadata' => ['provider' => 'openai', 'raw' => ''],
+        ],
+    ]);
+
+    $this->client
+        ->shouldReceive('sendRequest')
+        ->once()
+        ->andThrow(new \GuzzleHttp\Exception\ClientException(
+            message: 'Client error: 429 Too Many Requests',
+            request: $payload->toRequest($baseUri, $headers, $queryParams),
+            response: new Response(429, ['Content-Type' => 'application/json'], $responseBody)
+        ));
+
+    expect(fn () => $this->http->requestObject($payload))->toThrow(function (ErrorException $e) {
+        expect($e->getMessage())->toBe('Provider returned error')
+            ->and($e->getStatusCode())->toBe(429);
+    });
+});
+
 test('transporter exception getters work without response', function () {
     $payload = Payload::list('models');
 

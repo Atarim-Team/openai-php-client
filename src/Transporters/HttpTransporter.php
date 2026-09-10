@@ -191,7 +191,7 @@ final class HttpTransporter implements TransporterContract
             $data = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 
             if (isset($data['error']['metadata']['raw'])) {
-                throw new ErrorException(json_decode($data['error']['metadata']['raw'], true), $response, $contents);
+                throw new ErrorException($this->contentsFromProviderRaw($data['error']), $response, $contents);
             }
             if (isset($data['error'])) {
                 throw new ErrorException($data['error'], $response, $contents);
@@ -209,5 +209,48 @@ final class HttpTransporter implements TransporterContract
 
             throw new UnserializableResponse($jsonException, $response);
         }
+    }
+
+    /**
+     * OpenRouter forwards the upstream provider's own error body as a string in
+     * `error.metadata.raw`.
+     *
+     * It is not reliably JSON — an HTML error page, plain text or a truncated
+     * body arrive just as often — and json_decode() then returns null, which
+     * ErrorException's string|array parameter rejects with a TypeError. That
+     * replaced a clean, non-retryable provider error with a type error the
+     * caller cannot classify, so the request was retried until its deadline.
+     *
+     * When it is JSON it is usually the provider's whole `{"error": {...}}`
+     * envelope rather than the error itself, which left the message with no
+     * `message` or `code` to read and degraded it to the entire raw body.
+     *
+     * Falls back to OpenRouter's own error object, which is always well formed.
+     *
+     * @param  array<string, mixed>  $error
+     * @return array<string, mixed>|string
+     */
+    private function contentsFromProviderRaw(array $error): array|string
+    {
+        $metadata = $error['metadata'] ?? null;
+        $raw = is_array($metadata) ? ($metadata['raw'] ?? null) : null;
+
+        if (! is_string($raw) || $raw === '') {
+            return $error;
+        }
+
+        $decoded = json_decode($raw, true);
+
+        if (is_string($decoded) && $decoded !== '') {
+            return $decoded;
+        }
+
+        if (! is_array($decoded)) {
+            return $raw;
+        }
+
+        $inner = $decoded['error'] ?? null;
+
+        return is_array($inner) || is_string($inner) ? $inner : $decoded;
     }
 }
